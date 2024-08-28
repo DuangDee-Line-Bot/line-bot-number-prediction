@@ -121,7 +121,7 @@ function findData(responseMessaage, jsonData) {
 }
 
 function fetchData() {
-  return fetch("http://localhost:8080/api/data")
+  return fetch("https://api-line-bot.onrender.com/api/data")
     .then((response) => {
       if (!response.ok) {
         throw new Error("Network response was not ok");
