@@ -51,6 +51,8 @@ function handleEvent(event) {
       switch (message.type) {
         case "text":
           return handleText(message, event.replyToken);
+        case "text":
+          return handleOTPMessage(message, event.replyToken);
         case "image":
           return handleImage(message, event.replyToken);
         case "video":
@@ -94,9 +96,42 @@ function handleEvent(event) {
       throw new Error(`Unknown event: ${JSON.stringify(event)}`);
   }
 }
-function findData(responseMessaage, jsonData) {
-  // for (let i = 0; i < jsonData.length; i++) {
+function fetchData() {
+  return fetch("https://api-line-bot.onrender.com/api/data")
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    })
+    .catch((error) => {
+      console.error("There was a problem with the fetch operation:", error);
+    });
+}
+function fetchOTP() {
+  return fetch("https://api-line-bot.onrender.com/api/otp")
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    })
+    .catch((error) => {
+      console.error("There was a problem with the fetch operation:", error);
+    });
+}
+async function checkOTP(responseMessaage, otp) {
+  const getOtp = await fetchOTP();
+  if (getOtp === otp) {
+  } else {
+    console.log("OTP does not match!");
+
+    return "รหัสไม่ตรงกัน";
+  }
+}
+function findData(responseMessaage, jsonData, otp) {
   if (jsonData.find((x) => x.key == responseMessaage)) {
+    // for (let i = 0; i < jsonData.length; i++) {
     console.log("Correct!");
     // console.log(jsonData[responseMessaage]);
 
@@ -114,31 +149,44 @@ function findData(responseMessaage, jsonData) {
       }
     }
   } else {
-    console.log("Wrong!");
+    console.log("Data does not match!");
 
     return "ไม่พบข้อมูลที่ตรงกัน";
   }
 }
 
-function fetchData() {
-  return fetch("https://api-line-bot.onrender.com/api/data")
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      return response.json();
-    })
-    .catch((error) => {
-      console.error("There was a problem with the fetch operation:", error);
-    });
-}
+// async function handleKeyMessage(message, replyToken) {
+//   const getOtp = await fetchOTP();
+//   if (otp) {
+//   }
+// }
 async function handleText(message, replyToken) {
-  const data = await fetchData(); // รอให้ fetchData ส่งคืนค่า data
-  return replyText(
-    replyToken,
-    findData(message.text, data), // ใช้ data ที่ได้รับจาก fetchData
-    message.quoteToken
-  );
+  const data = await fetchData();
+  const otp = await fetchOTP();
+  console.log(data);
+  if (data.find((x) => x.key == message)) {
+    if (localStorage.getItem("OTP") == otp) {
+      return replyText(
+        replyToken,
+        findData(message.text, data),
+        message.quoteToken
+      );
+    } else {
+      console.log("Your OTP does not match");
+    }
+  } else {
+    console.log("Your message does not match");
+  }
+}
+async function handleOTPMessage(message, replyToken) {
+  const otp = await fetchOTP();
+  if (message == otp) {
+    localStorage.setItem("OTP", message);
+  } else {
+    console.log("OTP does not match!");
+
+    return "รหัสไม่ตรงกัน";
+  }
 }
 
 function handleImage(message, replyToken) {
