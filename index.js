@@ -4,6 +4,9 @@ const line = require("@line/bot-sdk");
 const express = require("express");
 const config = require("./config.json");
 require("dotenv").config();
+const fs = require("fs");
+const storageFile = "localStorage.json";
+
 // create LINE SDK client
 const client = new line.messagingApi.MessagingApiClient(config);
 
@@ -18,7 +21,7 @@ app.post("/webhook", line.middleware(config), (req, res) => {
   // handle events separately
   Promise.all(
     req.body.events.map((event) => {
-      console.log("event", event);
+      // console.log("event", event);
       return handleEvent(event);
     })
   )
@@ -28,7 +31,17 @@ app.post("/webhook", line.middleware(config), (req, res) => {
       res.status(500).end();
     });
 });
-
+// File-Based Storage function
+function readStorage() {
+  if (!fs.existsSync(storageFile)) {
+    return {};
+  }
+  const data = fs.readFileSync(storageFile);
+  return JSON.parse(data);
+}
+function writeStorage(data) {
+  fs.writeFileSync(storageFile, JSON.stringify(data, null, 2));
+}
 // simple reply function
 const replyText = (replyToken, text, quoteToken) => {
   return client.replyMessage({
@@ -44,56 +57,64 @@ const replyText = (replyToken, text, quoteToken) => {
 };
 
 // callback function to handle a single event
-function handleEvent(event) {
-  switch (event.type) {
-    case "message":
-      const message = event.message;
-      switch (message.type) {
-        case "text":
-          return handleText(message, event.replyToken);
-        case "text":
-          return handleOTPMessage(message, event.replyToken);
-        case "image":
-          return handleImage(message, event.replyToken);
-        case "video":
-          return handleVideo(message, event.replyToken);
-        case "audio":
-          return handleAudio(message, event.replyToken);
-        case "location":
-          return handleLocation(message, event.replyToken);
-        case "sticker":
-          return handleSticker(message, event.replyToken);
-        default:
-          throw new Error(`Unknown message: ${JSON.stringify(message)}`);
-      }
+async function handleEvent(event) {
+  const getOtp = await fetchOTP();
+  console.log("handleEvent >> OTP=" + getOtp.otp);
+  console.log("handleEvent >> event.message=" + event.message.text);
 
-    case "follow":
-      return replyText(event.replyToken, "Got followed event");
+  if (getOtp.otp !== event.message.text) {
+    switch (event.type) {
+      case "message":
+        const message = event.message;
+        switch (message.type) {
+          case "text":
+            return handleText(message, event.replyToken);
+          case "image":
+            return handleImage(message, event.replyToken);
+          case "video":
+            return handleVideo(message, event.replyToken);
+          case "audio":
+            return handleAudio(message, event.replyToken);
+          case "location":
+            return handleLocation(message, event.replyToken);
+          case "sticker":
+            return handleSticker(message, event.replyToken);
+          default:
+            throw new Error(`Unknown message: ${JSON.stringify(message)}`);
+        }
 
-    case "unfollow":
-      return console.log(`Unfollowed this bot: ${JSON.stringify(event)}`);
+      case "follow":
+        return replyText(event.replyToken, "Got followed event");
 
-    case "join":
-      return replyText(event.replyToken, `Joined ${event.source.type}`);
+      case "unfollow":
+        return console.log(`Unfollowed this bot: ${JSON.stringify(event)}`);
 
-    case "leave":
-      return console.log(`Left: ${JSON.stringify(event)}`);
+      case "join":
+        return replyText(event.replyToken, `Joined ${event.source.type}`);
 
-    case "postback":
-      let data = event.postback.data;
-      return replyText(event.replyToken, `Got postback: ${data}`);
+      case "leave":
+        return console.log(`Left: ${JSON.stringify(event)}`);
 
-    case "beacon":
-      const dm = `${Buffer.from(event.beacon.dm || "", "hex").toString(
-        "utf8"
-      )}`;
-      return replyText(
-        event.replyToken,
-        `${event.beacon.type} beacon hwid : ${event.beacon.hwid} with device message = ${dm}`
-      );
+      case "postback":
+        let data = event.postback.data;
+        return replyText(event.replyToken, `Got postback: ${data}`);
 
-    default:
-      throw new Error(`Unknown event: ${JSON.stringify(event)}`);
+      case "beacon":
+        const dm = `${Buffer.from(event.beacon.dm || "", "hex").toString(
+          "utf8"
+        )}`;
+        return replyText(
+          event.replyToken,
+          `${event.beacon.type} beacon hwid : ${event.beacon.hwid} with device message = ${dm}`
+        );
+
+      default:
+        throw new Error(`Unknown event: ${JSON.stringify(event)}`);
+    }
+  } else {
+    writeStorage(event.message.text);
+    console.log("your storage: " + readStorage());
+    return replyText(event.replyToken, "OTP ของคุณถูกต้อง", event.quoteToken);
   }
 }
 function fetchData() {
@@ -120,15 +141,7 @@ function fetchOTP() {
       console.error("There was a problem with the fetch operation:", error);
     });
 }
-async function checkOTP(responseMessaage, otp) {
-  const getOtp = await fetchOTP();
-  if (getOtp === otp) {
-  } else {
-    console.log("OTP does not match!");
 
-    return "รหัสไม่ตรงกัน";
-  }
-}
 function findData(responseMessaage, jsonData, otp) {
   if (jsonData.find((x) => x.key == responseMessaage)) {
     // for (let i = 0; i < jsonData.length; i++) {
@@ -155,33 +168,28 @@ function findData(responseMessaage, jsonData, otp) {
   }
 }
 
-// async function handleKeyMessage(message, replyToken) {
-//   const getOtp = await fetchOTP();
-//   if (otp) {
-//   }
-// }
 async function handleText(message, replyToken) {
   const data = await fetchData();
-  const otp = await fetchOTP();
-  console.log(data);
-  if (data.find((x) => x.key == message)) {
-    if (localStorage.getItem("OTP") == otp) {
-      return replyText(
-        replyToken,
-        findData(message.text, data),
-        message.quoteToken
-      );
-    } else {
-      console.log("Your OTP does not match");
-    }
+  const getOtp = await fetchOTP();
+  const localOTP = readStorage();
+  console.log("handleText");
+  if (localOTP == getOtp.otp) {
+    return replyText(
+      replyToken,
+      findData(message.text, data),
+      message.quoteToken
+    );
   } else {
-    console.log("Your message does not match");
+    console.log("Your OTP does not match");
+    return replyText(
+      replyToken,
+      "OTP ไม่ตรงกันหรืออาจหมดอายุ\nโปรดส่งรหัส OTP ใหม่อีกครั้ง",
+      message.quoteToken
+    );
   }
 }
-async function handleOTPMessage(message, replyToken) {
-  const otp = await fetchOTP();
+function handleOTPMessage(message, replyToken) {
   if (message == otp) {
-    localStorage.setItem("OTP", message);
   } else {
     console.log("OTP does not match!");
 
