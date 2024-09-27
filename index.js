@@ -6,11 +6,14 @@ const config = require("./config.json");
 require("dotenv").config();
 const fs = require("fs");
 const storageFile = "localStorage.json";
+const cron = require("node-cron");
 
 // create LINE SDK client
 const client = new line.messagingApi.MessagingApiClient(config);
 
 const app = express();
+let globalOtp = null;
+fetchOTP();
 
 // webhook callback
 app.post("/webhook", line.middleware(config), (req, res) => {
@@ -58,11 +61,16 @@ const replyText = (replyToken, text, quoteToken) => {
 
 // callback function to handle a single event
 async function handleEvent(event) {
-  const getOtp = await fetchOTP();
-  console.log("handleEvent >> OTP=" + getOtp.otp);
-  console.log("handleEvent >> event.message=" + event.message.text);
+  const otp = getGlobalOTP();
+  const data = await fetchData();
+  const localOTP = readStorage();
 
-  if (getOtp.otp !== event.message.text) {
+  const checkOTP = await globalOtp.find(
+    (otps) => otps.otp == event.message.text
+  );
+  const checkData = await data.find((data) => data.key == event.message.text);
+
+  if (checkData) {
     switch (event.type) {
       case "message":
         const message = event.message;
@@ -112,9 +120,11 @@ async function handleEvent(event) {
         throw new Error(`Unknown event: ${JSON.stringify(event)}`);
     }
   } else {
-    writeStorage(event.message.text);
-    console.log("your storage: " + readStorage());
-    return replyText(event.replyToken, "OTP ของคุณถูกต้อง", event.quoteToken);
+    replyText(
+      event.replyToken,
+      "OTP ไม่ตรงกันหรืออาจหมดอายุ\nโปรดส่งรหัส OTP ใหม่อีกครั้ง",
+      event.message.quoteToken
+    );
   }
 }
 function fetchData() {
@@ -129,19 +139,22 @@ function fetchData() {
       console.error("There was a problem with the fetch operation:", error);
     });
 }
-function fetchOTP() {
-  return fetch("https://api-line-bot.onrender.com/api/otp")
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      return response.json();
-    })
-    .catch((error) => {
-      console.error("There was a problem with the fetch operation:", error);
-    });
-}
 
+async function fetchOTP() {
+  try {
+    const response = await fetch("https://api-line-bot.onrender.com/api/otp"); // Replace with your API URL
+    const data = await response.json();
+    globalOtp = data;
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  }
+}
+cron.schedule("*/3 * * * *", () => {
+  fetchOTP();
+});
+function getGlobalOTP() {
+  return globalOtp;
+}
 function findData(responseMessaage, jsonData, otp) {
   if (jsonData.find((x) => x.key == responseMessaage)) {
     // for (let i = 0; i < jsonData.length; i++) {
@@ -170,10 +183,23 @@ function findData(responseMessaage, jsonData, otp) {
 
 async function handleText(message, replyToken) {
   const data = await fetchData();
-  const getOtp = await fetchOTP();
   const localOTP = readStorage();
-  console.log("handleText");
-  if (localOTP == getOtp.otp) {
+  console.log("handleText LocalOTP" + localOTP);
+
+  const checkOTPMsg = await globalOtp.find((otps) => otps.otp == message.text);
+  const checkOTPLocal = await globalOtp.find((otps) => otps.otp == localOTP);
+  if (checkOTPMsg) {
+    writeStorage(message.text);
+    console.log("your storage: " + readStorage());
+    return replyText(replyToken, "OTP ของคุณถูกต้อง", message.quoteToken);
+  } else if (checkOTPMsg !== localOTP) {
+    return replyText(
+      replyToken,
+      "OTP ไม่ตรงกันหรืออาจหมดอายุ\nโปรดส่งรหัส OTP ใหม่อีกครั้ง",
+      message.quoteToken
+    );
+  }
+  if (checkOTPLocal) {
     return replyText(
       replyToken,
       findData(message.text, data),
@@ -186,14 +212,6 @@ async function handleText(message, replyToken) {
       "OTP ไม่ตรงกันหรืออาจหมดอายุ\nโปรดส่งรหัส OTP ใหม่อีกครั้ง",
       message.quoteToken
     );
-  }
-}
-function handleOTPMessage(message, replyToken) {
-  if (message == otp) {
-  } else {
-    console.log("OTP does not match!");
-
-    return "รหัสไม่ตรงกัน";
   }
 }
 
