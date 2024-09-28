@@ -69,7 +69,6 @@ async function handleEvent(event) {
     (otps) => otps.otp == event.message.text
   );
   const checkData = await data.find((data) => data.key == event.message.text);
-
   if (checkData) {
     switch (event.type) {
       case "message":
@@ -119,6 +118,14 @@ async function handleEvent(event) {
       default:
         throw new Error(`Unknown event: ${JSON.stringify(event)}`);
     }
+  } else if (checkOTP) {
+    writeStorage(event.message.text);
+    console.log("your storage: " + readStorage());
+    return replyText(
+      event.replyToken,
+      "OTP ของคุณถูกต้อง",
+      event.message.quoteToken
+    );
   } else {
     replyText(
       event.replyToken,
@@ -188,17 +195,19 @@ async function handleText(message, replyToken) {
 
   const checkOTPMsg = await globalOtp.find((otps) => otps.otp == message.text);
   const checkOTPLocal = await globalOtp.find((otps) => otps.otp == localOTP);
-  if (checkOTPMsg) {
-    writeStorage(message.text);
-    console.log("your storage: " + readStorage());
-    return replyText(replyToken, "OTP ของคุณถูกต้อง", message.quoteToken);
-  } else if (checkOTPMsg !== localOTP) {
-    return replyText(
-      replyToken,
-      "OTP ไม่ตรงกันหรืออาจหมดอายุ\nโปรดส่งรหัส OTP ใหม่อีกครั้ง",
-      message.quoteToken
-    );
-  }
+  console.log("handleText checkOTPLocal" + checkOTPLocal.otp);
+
+  // if (checkOTPMsg) {
+  //   writeStorage(message.text);
+  //   console.log("your storage: " + readStorage());
+  //   return replyText(replyToken, "OTP ของคุณถูกต้อง", message.quoteToken);
+  // } else if (checkOTPMsg !== localOTP) {
+  //   return replyText(
+  //     replyToken,
+  //     "OTP ไม่ตรงกันหรืออาจหมดอายุ\nโปรดส่งรหัส OTP ใหม่อีกครั้ง",
+  //     message.quoteToken
+  //   );
+  // }
   if (checkOTPLocal) {
     return replyText(
       replyToken,
