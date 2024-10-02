@@ -1,4 +1,5 @@
 // app.js
+"use strict";
 
 require("dotenv").config();
 const express = require("express");
@@ -6,9 +7,10 @@ const { middleware } = require("@line/bot-sdk");
 const bodyParser = require("body-parser");
 
 // Line SDK config
+
 const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET,
+  channelAccessToken: process.env.channelAccessToken,
+  channelSecret: process.env.channelSecret,
 };
 
 // Initialize express
@@ -19,7 +21,10 @@ app.use(middleware(config));
 
 // Parse JSON request body
 app.use(bodyParser.json());
-
+const home = (req, res) => {
+  res.send("Hello, World!");
+};
+app.post("/home", home);
 // Use the controller to handle webhook
 const lineController = require("./controllers/lineController");
 app.post("/webhook", lineController.handleWebhook);
