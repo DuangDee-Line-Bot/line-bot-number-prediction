@@ -1,8 +1,10 @@
+require("dotenv").config();
+
 let globalOtp = null;
 
 exports.fetchData = async () => {
   try {
-    const response = await fetch("https://api-line-bot.onrender.com/api/data");
+    const response = await fetch(process.env.API_URL + "/api/data");
     if (!response.ok) {
       throw new Error("Network response was not ok");
     }
@@ -14,12 +16,12 @@ exports.fetchData = async () => {
 
 exports.fetchOTP = async () => {
   try {
-    const response = await fetch("https://api-line-bot.onrender.com/api/otp"); // Replace with your API URL
+    const response = await fetch(process.env.API_URL + "/api/otp"); // Replace with your API URL
 
     const data = await response.json();
     globalOtp = data;
   } catch (error) {
-    console.error("Error fetching data:", error);
+    console.error("Error fetching otp:", error);
   }
 };
 exports.getGlobalOTP = async () => {
