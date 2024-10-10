@@ -1,7 +1,7 @@
 // app.js
 "use strict";
-
 require("dotenv").config();
+const functions = require("firebase-functions");
 const express = require("express");
 const { middleware } = require("@line/bot-sdk");
 const bodyParser = require("body-parser");
@@ -34,3 +34,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+exports.lineBot = functions.https.onRequest(app);
