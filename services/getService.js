@@ -11,17 +11,7 @@ exports.fetchData = async () => {
     console.error("There was a problem with the fetch operation:", error);
   }
 };
-// exports.fetchOTP = async () => {
-//   try {
-//     const response = await fetch("https://api-line-bot.onrender.com/api/otp");
-//     if (!response.ok) {
-//       throw new Error("Network response was not ok");
-//     }
-//     return await response.json();
-//   } catch (error) {
-//     console.error("There was a problem with the fetch operation:", error);
-//   }
-// };
+
 exports.fetchOTP = async () => {
   try {
     const response = await fetch("https://api-line-bot.onrender.com/api/otp"); // Replace with your API URL
@@ -37,10 +27,6 @@ exports.getGlobalOTP = async () => {
 };
 exports.findData = async (responseMessaage, jsonData, otp) => {
   if (jsonData.find((x) => x.key == responseMessaage)) {
-    // for (let i = 0; i < jsonData.length; i++) {
-    console.log("Correct!");
-    // console.log(jsonData[responseMessaage]);
-
     for (let i = 0; i < jsonData.length; i++) {
       if (responseMessaage == jsonData[i].key) {
         return (
@@ -55,8 +41,6 @@ exports.findData = async (responseMessaage, jsonData, otp) => {
       }
     }
   } else {
-    console.log("Data does not match!");
-
     return "ไม่พบข้อมูลที่ตรงกัน";
   }
 };
