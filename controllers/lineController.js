@@ -12,7 +12,6 @@ const config = {
 };
 const client = new line.messagingApi.MessagingApiClient(config);
 getService.fetchOTP();
-let globalOtp = getService.getGlobalOTP();
 
 // Handle Line webhook events
 exports.handleWebhook = (req, res) => {
@@ -37,21 +36,27 @@ const replyText = (replyToken, text, quoteToken) => {
   });
 };
 // Function to handle each event
+function isExpired(isoDate) {
+  const expiryDate = new Date(isoDate);
+  const now = new Date();
+  return now.getTime() > expiryDate.getTime();
+}
 async function handleEvent(event) {
   const otp = await getService.getGlobalOTP();
-  const data = await getService.fetchData();
   const localOTP = fileStorage.readStorage();
   const checkOTP = await otp.find((otps) => otps.otp == event.message.text);
+  const checkOTPLocal = await otp.find((otps) => otps.otp == localOTP);
+  console.log(otp);
+  console.log("localOTP " + localOTP);
+  console.log("checkOTP " + checkOTP);
+  console.log("checkOTPLocal " + checkOTPLocal);
 
-  if (!checkOTP) {
-    const checkOTPLocal = await otp.find((otps) => otps.otp == localOTP);
-
-    if (checkOTPLocal == undefined) {
+  if (localOTP !== "") {
+    if (isExpired(checkOTPLocal.expiry)) {
       fileStorage.writeStorage("");
-
-      replyText(
+      return replyText(
         event.replyToken,
-        "OTP ไม่ตรงกันหรืออาจหมดอายุ\nโปรดส่งรหัส OTP ใหม่อีกครั้ง",
+        "OTP หมดอายุแล้ว\nโปรดส่งรหัส OTP ใหม่",
         event.message.quoteToken
       );
     } else {
@@ -111,41 +116,22 @@ async function handleEvent(event) {
       "OTP ของคุณถูกต้อง",
       event.message.quoteToken
     );
+  } else {
+    return replyText(
+      event.replyToken,
+      "OTP ไม่ตรงกันหรืออาจหมดอายุ\nโปรดส่งรหัส OTP ใหม่อีกครั้ง",
+      event.message.quoteToken
+    );
   }
 }
-function isExpired(isoDate) {
-  const expiryDate = new Date(isoDate);
-  const now = new Date();
-  return now.getTime() > expiryDate.getTime();
-}
 
-// Function to handle text event
 async function handleText(message, replyToken) {
   const data = await getService.fetchData();
-  const localOTP = fileStorage.readStorage();
-  const otp = await getService.getGlobalOTP();
-  const checkOTPLocal = await otp.find((otps) => otps.otp == localOTP);
-
-  if (isExpired(checkOTPLocal.expiry)) {
-    fileStorage.writeStorage("");
-    return replyText(
-      replyToken,
-      "OTP หมดอายุแล้ว\nโปรดส่งรหัส OTP ใหม่",
-      message.quoteToken
-    );
-  } else if (checkOTPLocal !== "") {
-    return replyText(
-      replyToken,
-      await getService.findData(message.text, data),
-      message.quoteToken
-    );
-  } else if (checkOTPLocal == "") {
-    return replyText(
-      replyToken,
-      "OTP ไม่ตรงกันหรืออาจหมดอายุ\nโปรดส่งรหัส OTP ใหม่อีกครั้ง",
-      message.quoteToken
-    );
-  }
+  return replyText(
+    replyToken,
+    await getService.findData(message.text, data),
+    message.quoteToken
+  );
 }
 
 function handleImage(message, replyToken) {
