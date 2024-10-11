@@ -5,6 +5,9 @@ require("dotenv").config();
 const express = require("express");
 const { middleware } = require("@line/bot-sdk");
 const bodyParser = require("body-parser");
+const cron = require("node-cron");
+
+const getService = require("./services/getService");
 
 // Line SDK config
 
@@ -28,6 +31,8 @@ app.post("/home", home);
 // Use the controller to handle webhook
 const lineController = require("./controllers/lineController");
 app.post("/webhook", lineController.handleWebhook);
+
+cron.schedule("*/3 * * * *", getService.fetchOTP);
 
 // Start the server
 const PORT = process.env.PORT || 3000;

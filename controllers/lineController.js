@@ -11,7 +11,6 @@ const config = {
   channelSecret: process.env.channelSecret,
 };
 const client = new line.messagingApi.MessagingApiClient(config);
-getService.fetchOTP();
 
 // Handle Line webhook events
 exports.handleWebhook = (req, res) => {
@@ -37,22 +36,23 @@ const replyText = (replyToken, text, quoteToken) => {
 };
 // Function to handle each event
 function isExpired(isoDate) {
-  const expiryDate = new Date(isoDate);
+  const expiryDate = new Date(isoDate.expiry);
   const now = new Date();
   return now.getTime() > expiryDate.getTime();
 }
 async function handleEvent(event) {
-  const otp = await getService.getGlobalOTP();
+  const otp = await getService.fetchOTP();
+  const getOtp = await getService.getGlobalOTP();
   const localOTP = fileStorage.readStorage();
-  const checkOTP = await otp.find((otps) => otps.otp == event.message.text);
-  const checkOTPLocal = await otp.find((otps) => otps.otp == localOTP);
-  console.log(otp);
-  console.log("localOTP " + localOTP);
+  const checkOTP = await getOtp.find((otps) => otps.otp == event.message.text);
+  const checkOTPLocal = await otp.find((otps) => otps.otp == localOTP.otp);
+  console.log("localOTP " + localOTP.otp);
   console.log("checkOTP " + checkOTP);
   console.log("checkOTPLocal " + checkOTPLocal);
+  console.log(otp);
 
   if (localOTP !== "") {
-    if (isExpired(checkOTPLocal.expiry)) {
+    if (checkOTPLocal == undefined) {
       fileStorage.writeStorage("");
       return replyText(
         event.replyToken,
@@ -110,7 +110,7 @@ async function handleEvent(event) {
       }
     }
   } else if (checkOTP) {
-    fileStorage.writeStorage(event.message.text);
+    fileStorage.writeStorage(checkOTP);
     return replyText(
       event.replyToken,
       "OTP ของคุณถูกต้อง",

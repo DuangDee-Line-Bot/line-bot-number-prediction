@@ -17,9 +17,12 @@ exports.fetchData = async () => {
 exports.fetchOTP = async () => {
   try {
     const response = await fetch(process.env.API_URL + "/api/otp"); // Replace with your API URL
-
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
     const data = await response.json();
     globalOtp = data;
+    return data;
   } catch (error) {
     console.error("Error fetching otp:", error);
   }
@@ -27,7 +30,9 @@ exports.fetchOTP = async () => {
 exports.getGlobalOTP = async () => {
   return await globalOtp;
 };
-exports.findData = async (responseMessaage, jsonData, otp) => {
+exports.findData = async (responseMessaage, jsonData) => {
+  const resMsgLowerCase = responseMessaage.toLowerCase();
+  console.log(resMsgLowerCase);
   if (jsonData.find((x) => x.key == responseMessaage)) {
     for (let i = 0; i < jsonData.length; i++) {
       if (responseMessaage == jsonData[i].key) {
